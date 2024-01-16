@@ -32,12 +32,14 @@ class ConfluenceReader(BaseReader):
     """
 
     def __init__(
-        self, base_url: str = None, oauth2: Optional[Dict] = None, cloud: bool = True
+        self, username: str, token: str, base_url: str = None, oauth2: Optional[Dict] = None, cloud: bool = True
     ) -> None:
         if base_url is None:
             raise ValueError("Must provide `base_url`")
 
         self.base_url = base_url
+        self.username = username
+        self.password = token
 
         try:
             from atlassian import Confluence
@@ -50,17 +52,17 @@ class ConfluenceReader(BaseReader):
         if oauth2:
             self.confluence = Confluence(url=base_url, oauth2=oauth2, cloud=cloud)
         else:
-            api_token = os.getenv(CONFLUENCE_API_TOKEN)
+            api_token = None
             if api_token is not None:
                 self.confluence = Confluence(url=base_url, token=api_token, cloud=cloud)
             else:
-                user_name = os.getenv(CONFLUENCE_USERNAME)
+                user_name = self.username
                 if user_name is None:
                     raise ValueError(
                         "Must set environment variable `CONFLUENCE_USERNAME` if oauth,"
                         " oauth2, or `CONFLUENCE_API_TOKEN` are not provided."
                     )
-                password = os.getenv(CONFLUENCE_PASSWORD)
+                password = self.password
                 if password is None:
                     raise ValueError(
                         "Must set environment variable `CONFLUENCE_PASSWORD` if oauth,"
