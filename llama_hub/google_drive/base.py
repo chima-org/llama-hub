@@ -21,14 +21,10 @@ class GoogleDriveReader(BaseReader):
 
     def __init__(
         self,
-        credentials_path: str = "credentials.json",
-        token_path: str = "token.json",
-        pydrive_creds_path: str = "creds.txt",
+        credentials: dict
     ) -> None:
         """Initialize with parameters."""
-        self.credentials_path = credentials_path
-        self.token_path = token_path
-        self.pydrive_creds_path = pydrive_creds_path
+        self.credentials = credentials
 
         self._creds = None
         self._drive = None
@@ -63,57 +59,17 @@ class GoogleDriveReader(BaseReader):
         Returns:
             credentials, pydrive object
         """
-        from google.auth.transport.requests import Request
-        from google.oauth2 import service_account
+        print("Authenticating with Google Drive")
         from google.oauth2.credentials import Credentials
-        from google_auth_oauthlib.flow import InstalledAppFlow
         from pydrive.auth import GoogleAuth
         from pydrive.drive import GoogleDrive
 
-        # First, we need the Google API credentials for the app
-        creds = None
-        if os.path.exists(self.token_path):
-            creds = Credentials.from_authorized_user_file(self.token_path, SCOPES)
-        elif os.path.exists(self.credentials_path):
-            creds = service_account.Credentials.from_service_account_file(
-                self.credentials_path, scopes=SCOPES
-            )
-            gauth = GoogleAuth()
-            gauth.credentials = creds
-            drive = GoogleDrive(gauth)
-            return creds, drive
-        # If there are no (valid) credentials available, let the user log in.
-        if not creds or not creds.valid:
-            if creds and creds.expired and creds.refresh_token:
-                creds.refresh(Request())
-            else:
-                flow = InstalledAppFlow.from_client_secrets_file(
-                    self.credentials_path, SCOPES
-                )
-                creds = flow.run_local_server(port=0)
-            # Save the credentials for the next run
-            with open(self.token_path, "w") as token:
-                token.write(creds.to_json())
+        from google.oauth2.service_account import Credentials
 
-        # Next, we need user authentication to download files (via pydrive)
-        # Uses client_secrets.json file for authorization.
+        creds = Credentials.from_service_account_info(self.credentials)
         gauth = GoogleAuth()
-        # Try to load saved client credentials
-        gauth.LoadCredentialsFile(self.pydrive_creds_path)
-        if gauth.credentials is None:
-            # Authenticate if they're not there
-            gauth.LocalWebserverAuth()
-        elif gauth.access_token_expired:
-            # Refresh them if expired
-            gauth.Refresh()
-        else:
-            # Initialize the saved creds
-            gauth.Authorize()
-        # Save the current credentials to a file so user doesn't have to auth every time
-        gauth.SaveCredentialsFile(self.pydrive_creds_path)
-
+        gauth.credentials = creds
         drive = GoogleDrive(gauth)
-
         return creds, drive
 
     def _get_fileids_meta(
